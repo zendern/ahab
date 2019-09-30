@@ -62,3 +62,15 @@ func TestParseAptListFromStdIn(t *testing.T) {
 		t.Errorf("base-files dep did not match result. Actual %s", result.Projects[2])
 	}
 }
+
+func TestParseAptCanDealWithNonSemVerAndWillJustSkipIt(t *testing.T) {
+	var list []string
+	list = append(list, "Listing...")
+	list = append(list, "ca-certificates/bionic,bionic-updates,now 20180409 all [installed,automatic]")
+	list = append(list, "Done")
+	result := ParseAptListFromStdIn(list)
+
+	if len(result.Projects) != 0 {
+		t.Errorf("Didn't work")
+	}
+}

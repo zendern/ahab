@@ -14,6 +14,7 @@
 package parse
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -30,7 +31,10 @@ func ParseAptListFromStdIn(stdin []string) (projectList types.ProjectList) {
 		} else if strings.Contains(pkg, "Listing...") {
 			log.Println("Found beginning line of Apt Install List")
 		} else {
-			projectList.Projects = append(projectList.Projects, doAptParseStdIn(pkg))
+			parsedProject, err := doAptParseStdIn(pkg)
+			if err == nil {
+				projectList.Projects = append(projectList.Projects, parsedProject)
+			}
 		}
 	}
 	return
@@ -38,28 +42,39 @@ func ParseAptListFromStdIn(stdin []string) (projectList types.ProjectList) {
 
 func ParseAptList(packages []string) (projectList types.ProjectList) {
 	for _, pkg := range packages {
-		projectList.Projects = append(projectList.Projects, doAptParse(pkg))
+		parsedProject, err := doAptParse(pkg)
+		if err == nil {
+			projectList.Projects = append(projectList.Projects, parsedProject)
+		}
 	}
 	return
 }
 
-func doAptParseStdIn(pkg string) (parsedProject types.Projects) {
+func doAptParseStdIn(pkg string) (parsedProject types.Projects, err error) {
 	pkg = strings.TrimSpace(pkg)
 	splitPackage := strings.Split(pkg, " ")
+	newVersion, err := doParseAptVersionIntoPurl(splitPackage[1])
+	if err != nil {
+		return parsedProject, err
+	}
 	parsedProject.Name = strings.Split(splitPackage[0], "/")[0]
-	parsedProject.Version = doParseAptVersionIntoPurl(splitPackage[1])
+	parsedProject.Version = newVersion
 	return
 }
 
-func doAptParse(pkg string) (parsedProject types.Projects) {
+func doAptParse(pkg string) (parsedProject types.Projects, err error) {
 	pkg = strings.TrimSpace(pkg)
 	splitPackage := strings.Split(pkg, " ")
+	newVersion, err := doParseAptVersionIntoPurl(splitPackage[1])
+	if err != nil {
+		return parsedProject, err
+	}
 	parsedProject.Name = splitPackage[0]
-	parsedProject.Version = doParseAptVersionIntoPurl(splitPackage[1])
+	parsedProject.Version = newVersion
 	return
 }
 
-func doParseAptVersionIntoPurl(version string) (newVersion string) {
+func doParseAptVersionIntoPurl(version string) (newVersion string, err error) {
 	re, err := regexp.Compile(`^([0-9]+:)?(([0-9]+)\.([0-9]+)(\.([0-9]+))?)`)
 	if err != nil {
 		fmt.Println(err)
@@ -69,6 +84,8 @@ func doParseAptVersionIntoPurl(version string) (newVersion string) {
 	fmt.Println(newSlice)
 	if len(newSlice) >= 3 {
 		newVersion = newSlice[2]
+		return newVersion, nil
+	}else{
+		return newVersion, errors.New(fmt.Sprintf("Version of %s is not semVer", newSlice))
 	}
-	return
 }
